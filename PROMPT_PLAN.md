@@ -46,16 +46,25 @@ Status Legend:
 - **Git Commit**: 7fde427 ([CHUNK 1.2] Database Schema)
 
 ### Chunk 1.3: Authentication - NextAuth Setup
-- **Status**: ⏳ PLANNED
+- **Status**: ✅ COMPLETED
 - **Description**: JWT-based auth with NextAuth.js
 - **Dependencies**: 1.2
 - **Time Estimate**: 2-3 hours
 - **Deliverables**:
-  - [ ] NextAuth configured
-  - [ ] Login/logout working
-  - [ ] Session contains tenant info
-  - [ ] Tests for auth flow
-- **Git Commit**: Not yet
+  - [x] NextAuth configured with Credentials provider
+  - [x] Login page with test credentials (src/app/login/)
+  - [x] Session contains user info, tenantId, and roles
+  - [x] 10 unit tests for password hashing/verification
+  - [x] Authentication utilities (hashPassword, verifyPassword, authenticateUser)
+  - [x] useAuth React hook for state management
+  - [x] Multi-tenant login requiring tenantId
+  - [x] Password hashing with bcrypt (10 rounds)
+  - [x] JWT tokens with 24-hour expiration
+  - [x] HTTP-only secure cookies
+  - [x] Setup guide (CHUNK_1.3_SETUP.md)
+  - [x] npm run build succeeds ✓
+  - [x] All tests pass ✓
+- **Git Commit**: ccab86d ([CHUNK 1.3] Authentication - NextAuth Setup with JWT & Password Hashing)
 
 ### Chunk 1.4: Tenant Context Middleware
 - **Status**: ⏳ PLANNED
@@ -325,7 +334,7 @@ Status Legend:
 
 | Phase | Total Chunks | Completed | In Progress | Planned | Blocked |
 |-------|---|---|---|---|---|
-| 1 | 5 | 2 ✅ | 0 | 3 | 0 |
+| 1 | 5 | 3 ✅ | 0 | 2 | 0 |
 | 2 | 6 | 0 | 0 | 6 | 0 |
 | 3 | 6 | 0 | 0 | 0 | 6 |
 | 4 | 11 | 0 | 0 | 0 | 11 |
@@ -333,10 +342,10 @@ Status Legend:
 | 6 | 6 | 0 | 0 | 0 | 6 |
 | 7 | 8 | 0 | 0 | 0 | 8 |
 | 8 | 6 | 0 | 0 | 0 | 6 |
-| **TOTAL** | **51** | **2** ✅ | **0** | **9** | **40** |
+| **TOTAL** | **51** | **3** ✅ | **0** | **8** | **40** |
 
-**Progress**: 2/51 chunks completed (4%)**
-**Phase 1 Progress**: 2/5 chunks done (40%)**
+**Progress**: 3/51 chunks completed (6%)**
+**Phase 1 Progress**: 3/5 chunks done (60%)**
 
 ---
 
