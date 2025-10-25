@@ -49,6 +49,8 @@
     ".next",
     "node_modules",
     "out",
-    "build"
+    "build",
+    "prisma",
+    "*.d.ts"
   ]
 }

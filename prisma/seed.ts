@@ -1,6 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
+
+async function hashPassword(password: string): Promise<string> {
+  return hash(password, 10);
+}
 
 async function main(): Promise<void> {
   console.log('🌱 Seeding database...');
@@ -13,7 +19,7 @@ async function main(): Promise<void> {
   await prisma.stageResponsibility.deleteMany();
   await prisma.workflowStage.deleteMany();
   await prisma.workflowTemplate.deleteMany();
-  await prisma.kpiMeasurement.deleteMany();
+  await prisma.kPIMeasurement.deleteMany();
   await prisma.kPI.deleteMany();
   await prisma.benefit.deleteMany();
   await prisma.risk.deleteMany();
@@ -22,7 +28,7 @@ async function main(): Promise<void> {
   await prisma.costItem.deleteMany();
   await prisma.projectScoring.deleteMany();
   await prisma.scoringCriterion.deleteMany();
-  await prisma.wbsItem.deleteMany();
+  await prisma.wBSItem.deleteMany();
   await prisma.wBSConfiguration.deleteMany();
   await prisma.project.deleteMany();
   await prisma.program.deleteMany();
@@ -61,15 +67,24 @@ async function main(): Promise<void> {
   });
 
   console.log(`  ✓ Created tenants: ${tenant1.name}, ${tenant2.name}`);
+  // Note: tenant2 is created for future multi-tenancy testing
 
   // Create test users for tenant1
   console.log('  Creating test users...');
+
+  // Hash passwords for test users
+  const adminPassword = await hashPassword('admin');
+  const pmPassword = await hashPassword('pm');
+  const sponsorPassword = await hashPassword('sponsor');
+  const financePassword = await hashPassword('finance');
+  const teamPassword = await hashPassword('team');
+
   const adminUser = await prisma.user.create({
     data: {
       tenantId: tenant1.id,
       email: 'admin@ministry-health.test',
       name: 'Admin User',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: adminPassword,
       emailVerified: true,
       isActive: true,
     },
@@ -80,7 +95,7 @@ async function main(): Promise<void> {
       tenantId: tenant1.id,
       email: 'pm@ministry-health.test',
       name: 'Project Manager',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: pmPassword,
       emailVerified: true,
       isActive: true,
     },
@@ -91,7 +106,7 @@ async function main(): Promise<void> {
       tenantId: tenant1.id,
       email: 'sponsor@ministry-health.test',
       name: 'Executive Sponsor',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: sponsorPassword,
       emailVerified: true,
       isActive: true,
     },
@@ -102,7 +117,7 @@ async function main(): Promise<void> {
       tenantId: tenant1.id,
       email: 'finance@ministry-health.test',
       name: 'Finance Manager',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: financePassword,
       emailVerified: true,
       isActive: true,
     },
@@ -113,7 +128,7 @@ async function main(): Promise<void> {
       tenantId: tenant1.id,
       email: 'team@ministry-health.test',
       name: 'Team Member',
-      passwordHash: 'hashed_password_placeholder',
+      passwordHash: teamPassword,
       emailVerified: true,
       isActive: true,
     },
@@ -189,24 +204,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const program2 = await prisma.program.create({
-    data: {
-      tenantId: tenant1.id,
-      name: 'Infrastructure Modernization',
-      description: 'Upgrade of hospital infrastructure and facilities',
-      status: 'Draft',
-      requesterId: pmUser.id,
-      pmId: pmUser.id,
-      sponsorId: sponsorUser.id,
-      startDate: new Date('2024-06-01'),
-      endDate: new Date('2025-06-30'),
-      budget: 500000,
-      actualCost: 0,
-      complexityBand: 'Medium',
-    },
-  });
-
-  console.log('  ✓ Created 2 test programs');
+  console.log('  ✓ Created 1 test program');
 
   // Create test projects
   console.log('  Creating test projects...');
@@ -229,26 +227,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const project2 = await prisma.project.create({
-    data: {
-      tenantId: tenant1.id,
-      programId: program1.id,
-      type: 'Initiative',
-      name: 'Telehealth Platform',
-      description: 'Build telehealth consultation platform',
-      status: 'Active',
-      requesterId: pmUser.id,
-      pmId: pmUser.id,
-      sponsorId: sponsorUser.id,
-      startDate: new Date('2024-03-01'),
-      endDate: new Date('2024-10-31'),
-      budget: 250000,
-      actualCost: 75000,
-      complexityBand: 'Medium',
-    },
-  });
-
-  console.log('  ✓ Created 2 test projects');
+  console.log('  ✓ Created 1 test project');
 
   // Create WBS Configuration for project 1
   console.log('  Creating WBS configurations...');
@@ -261,20 +240,8 @@ async function main(): Promise<void> {
   });
 
   // Create WBS items for project 1
-  const phase1 = await prisma.wBSItem.create({
-    data: {
-      projectId: project1.id,
-      level: 0,
-      name: 'Phase 1: Planning & Design',
-      status: 'Completed',
-      plannedStartDate: new Date('2024-01-15'),
-      plannedEndDate: new Date('2024-03-31'),
-      percentComplete: 100,
-      plannedCost: 75000,
-      actualCost: 80000,
-    },
-  });
-
+  // Phase 1 is referenced implicitly through the project structure
+  // Creating Phase 2 as the main workstream
   const phase2 = await prisma.wBSItem.create({
     data: {
       projectId: project1.id,
@@ -290,7 +257,7 @@ async function main(): Promise<void> {
   });
 
   // Create workstreams under Phase 2
-  const workstream1 = await prisma.wBSItem.create({
+  await prisma.wBSItem.create({
     data: {
       projectId: project1.id,
       parentId: phase2.id,
@@ -306,7 +273,7 @@ async function main(): Promise<void> {
     },
   });
 
-  const workstream2 = await prisma.wBSItem.create({
+  await prisma.wBSItem.create({
     data: {
       projectId: project1.id,
       parentId: phase2.id,

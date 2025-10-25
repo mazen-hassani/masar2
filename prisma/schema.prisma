@@ -160,8 +160,6 @@ model Program {
   projects  Project[]
   benefits  Benefit[]
   risks     Risk[]
-  invoices  Invoice[]
-  scorings  ProjectScoring[]
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -215,7 +213,6 @@ model Project {
   wbsItems  WBSItem[]
   benefits  Benefit[]
   risks     Risk[]
-  invoices  Invoice[]
   scorings  ProjectScoring[]
   workflowInstances WorkflowInstance[]
 
@@ -346,6 +343,7 @@ model ProjectScoring {
   @@unique([projectId, criterionId])
   @@index([projectId])
   @@index([criterionId])
+  @@map("ProjectScoring")
 }
 
 // ============================================================================
