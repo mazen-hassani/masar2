@@ -1,0 +1,747 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// MULTI-TENANCY FOUNDATION
+// ============================================================================
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String   @unique @db.VarChar(255)
+  subdomain String   @unique @db.VarChar(100)
+
+  settings  Json     @default("{\"timezone\": \"UTC\", \"currency\": \"USD\", \"dateFormat\": \"yyyy-MM-dd\", \"fiscalYearStart\": \"01-01\"}")
+
+  status    String   @default("active") @db.VarChar(50)
+  // Status: 'active', 'suspended', 'trial'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  users     User[]
+  programs  Program[]
+  projects  Project[]
+  scoringCriteria ScoringCriterion[]
+  workflowTemplates WorkflowTemplate[]
+  auditLogs AuditLog[]
+
+  @@index([subdomain])
+  @@index([status])
+}
+
+// ============================================================================
+// USER & ROLE MANAGEMENT
+// ============================================================================
+
+model User {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  email     String   @unique @db.VarChar(255)
+  name      String?  @db.VarChar(255)
+
+  passwordHash String? @db.VarChar(255)
+  emailVerified Boolean @default(false)
+  lastLogin DateTime?
+
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  roles     UserRole[]
+  assignedRoles UserRole[] @relation("AssignedBy")
+
+  // Entity assignments
+  programsCreated Program[] @relation("CreatedBy")
+  programsPM Program[] @relation("PM")
+  programsSponsored Program[] @relation("Sponsor")
+  projectsCreated Project[] @relation("CreatedBy")
+  projectsPM Project[] @relation("PM")
+  projectsSponsored Project[] @relation("Sponsor")
+
+  wbsItemOwners WBSItem[]
+
+  scoringEvaluated ProjectScoring[]
+  scoringCriteriaCreated ScoringCriterion[]
+
+  workflowTemplatesCreated WorkflowTemplate[]
+  stageActors StageAction[]
+
+  auditLogs AuditLog[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  role      String   @db.VarChar(50)
+  // Roles: 'Admin', 'PMO', 'Sponsor', 'PM', 'Finance', 'TeamMember', 'Management'
+
+  contextType String  @default("Global") @db.VarChar(50)
+  // Context: 'Global', 'Program', 'Project'
+
+  contextId String?   // Program or Project ID
+
+  assignedBy String
+  assignedByUser User? @relation("AssignedBy", fields: [assignedBy], references: [id])
+
+  assignedAt DateTime @default(now())
+  validUntil DateTime?
+
+  isActive  Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, role, contextType, contextId])
+  @@index([userId])
+  @@index([contextType, contextId])
+  @@index([validUntil])
+}
+
+// ============================================================================
+// PROGRAMS & PROJECTS
+// ============================================================================
+
+model Program {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  status    String   @default("Draft") @db.VarChar(50)
+  // Status: 'Draft', 'Pending', 'Active', 'OnHold', 'Completed', 'Cancelled'
+
+  requesterId String?
+  requestedBy User?  @relation("CreatedBy", fields: [requesterId], references: [id])
+
+  pmId      String?
+  pm        User?    @relation("PM", fields: [pmId], references: [id])
+
+  sponsorId String?
+  sponsor   User?    @relation("Sponsor", fields: [sponsorId], references: [id])
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  budget    Decimal  @default(0) @db.Decimal(15, 2)
+  actualCost Decimal @default(0) @db.Decimal(15, 2)
+  scoreValue Decimal? @db.Decimal(5, 2)
+
+  complexityBand String @default("Low") @db.VarChar(20)
+  // Complexity: 'Low', 'Medium', 'High'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  projects  Project[]
+  benefits  Benefit[]
+  risks     Risk[]
+  invoices  Invoice[]
+  scorings  ProjectScoring[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([status])
+  @@index([complexityBand])
+  @@index([deletedAt])
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id], onDelete: SetNull)
+
+  type      String   @db.VarChar(20)
+  // Type: 'Project' or 'Initiative'
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  status    String   @default("Draft") @db.VarChar(50)
+  // Status: 'Draft', 'Pending', 'Active', 'OnHold', 'Completed', 'Cancelled'
+
+  requesterId String?
+  requestedBy User?  @relation("CreatedBy", fields: [requesterId], references: [id])
+
+  pmId      String?
+  pm        User?    @relation("PM", fields: [pmId], references: [id])
+
+  sponsorId String?
+  sponsor   User?    @relation("Sponsor", fields: [sponsorId], references: [id])
+
+  startDate DateTime?
+  endDate   DateTime?
+
+  budget    Decimal  @default(0) @db.Decimal(15, 2)
+  actualCost Decimal @default(0) @db.Decimal(15, 2)
+  scoreValue Decimal? @db.Decimal(5, 2)
+
+  complexityBand String @default("Low") @db.VarChar(20)
+  // Complexity: 'Low', 'Medium', 'High'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  wbsConfig WBSConfiguration?
+  wbsItems  WBSItem[]
+  benefits  Benefit[]
+  risks     Risk[]
+  invoices  Invoice[]
+  scorings  ProjectScoring[]
+  workflowInstances WorkflowInstance[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([programId])
+  @@index([status])
+  @@index([complexityBand])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// WORK BREAKDOWN STRUCTURE (WBS)
+// ============================================================================
+
+model WBSConfiguration {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  levels    Int      // 1-5 levels
+  levelNames String[] // Array of level names: ["Milestone", "Activity", "Task"]
+
+  createdAt DateTime @default(now())
+  // Immutable after creation
+
+  @@index([projectId])
+}
+
+model WBSItem {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentId  String?
+  parent    WBSItem? @relation("Parent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  WBSItem[] @relation("Parent")
+
+  level     Int      // 0-based index
+  name      String   @db.VarChar(255)
+  description String?
+
+  plannedStartDate DateTime?
+  plannedEndDate DateTime?
+  actualStartDate DateTime?
+  actualEndDate DateTime?
+
+  ownerId   String?
+  owner     User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+
+  status    String   @default("NotStarted") @db.VarChar(50)
+  // Status: 'NotStarted', 'InProgress', 'Delayed', 'Completed', 'Cancelled'
+
+  plannedCost Decimal? @db.Decimal(15, 2)
+  actualCost Decimal? @db.Decimal(15, 2)
+
+  percentComplete Int @default(0) // 0-100
+
+  // Aggregated fields (calculated from children)
+  aggregatedStartDate DateTime?
+  aggregatedEndDate DateTime?
+  aggregatedCost Decimal @default(0) @db.Decimal(15, 2)
+  aggregatedStatus String? @db.VarChar(50)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  // Relationships
+  invoiceAllocations InvoiceAllocation[]
+
+  @@index([projectId])
+  @@index([parentId])
+  @@index([level])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+// ============================================================================
+// SCORING MATRIX
+// ============================================================================
+
+model ScoringCriterion {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  minScore  Int      @default(0)
+  maxScore  Int      @default(100)
+
+  isActive  Boolean  @default(true)
+
+  createdBy String?
+  createdByUser User? @relation(fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  scorings  ProjectScoring[]
+
+  @@index([tenantId])
+  @@index([isActive])
+}
+
+model ProjectScoring {
+  id        String   @id @default(cuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  criterionId String
+  criterion   ScoringCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  weight    Decimal  @db.Decimal(5, 2) // Percentage or weight
+  score     Decimal  @db.Decimal(5, 2) // Actual score
+
+  justification String?
+
+  evaluatedBy String?
+  evaluatedByUser User? @relation(fields: [evaluatedBy], references: [id])
+
+  evaluatedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, criterionId])
+  @@index([projectId])
+  @@index([criterionId])
+}
+
+// ============================================================================
+// BENEFITS & KPIs
+// ============================================================================
+
+model Benefit {
+  id        String   @id @default(cuid())
+
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  category  String   @db.VarChar(50)
+  // Category: 'Financial', 'Strategic', 'Operational', 'Social'
+
+  targetValue Decimal @db.Decimal(15, 2)
+  targetDate DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  kpis      KPI[]
+
+  @@index([programId])
+  @@index([projectId])
+}
+
+model KPI {
+  id        String   @id @default(cuid())
+  benefitId String
+  benefit   Benefit  @relation(fields: [benefitId], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(255)
+  unit      String   @db.VarChar(100)
+  // Unit: 'USD', 'Percentage', 'Count', etc.
+
+  baseline  Decimal  @db.Decimal(15, 4)
+  target    Decimal  @db.Decimal(15, 4)
+
+  collectionCadence String @db.VarChar(50)
+  // Cadence: 'Weekly', 'Monthly', 'Quarterly', 'Annually'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  measurements KPIMeasurement[]
+
+  @@index([benefitId])
+}
+
+model KPIMeasurement {
+  id        String   @id @default(cuid())
+  kpiId     String
+  kpi       KPI      @relation(fields: [kpiId], references: [id], onDelete: Cascade)
+
+  value     Decimal  @db.Decimal(15, 4)
+  measurementDate DateTime
+  notes     String?
+
+  recordedBy String?
+
+  createdAt DateTime @default(now())
+
+  @@index([kpiId])
+  @@index([measurementDate])
+}
+
+// ============================================================================
+// RISK MANAGEMENT
+// ============================================================================
+
+model Risk {
+  id        String   @id @default(cuid())
+
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id], onDelete: Cascade)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  parentRiskId String?
+  parentRisk   Risk?   @relation("InheritedRisks", fields: [parentRiskId], references: [id], onDelete: SetNull)
+  inheritedRisks Risk[] @relation("InheritedRisks")
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  category  String   @db.VarChar(50)
+  // Category: 'Technical', 'Financial', 'Operational', 'External', 'Legal'
+
+  probability Int    @db.SmallInt // 1-5
+  impact    Int      @db.SmallInt // 1-5
+  riskScore Int      @db.SmallInt // probability * impact
+
+  mitigation String?
+  contingency String?
+
+  owner     String?
+
+  status    String   @default("Open") @db.VarChar(50)
+  // Status: 'Open', 'Mitigated', 'Closed', 'Occurred'
+
+  isTailored Boolean @default(false)
+  tailoredDescription String?
+  tailoredMitigation String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([programId])
+  @@index([projectId])
+  @@index([status])
+}
+
+// ============================================================================
+// FINANCIAL MANAGEMENT
+// ============================================================================
+
+model CostItem {
+  id        String   @id @default(cuid())
+
+  entityType String  @db.VarChar(20)
+  // Type: 'Program' or 'Project'
+
+  entityId  String
+  wbsItemId String?
+
+  category  String   @db.VarChar(50)
+  // Category: 'Labor', 'Material', 'Equipment', 'Service', 'Other'
+
+  description String?
+
+  plannedAmount Decimal @db.Decimal(15, 2)
+  actualAmount Decimal @default(0) @db.Decimal(15, 2)
+  currency  String   @default("USD") @db.VarChar(3)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([entityType, entityId])
+}
+
+model Invoice {
+  id        String   @id @default(cuid())
+
+  entityType String  @db.VarChar(20)
+  // Type: 'Program' or 'Project'
+
+  entityId  String
+
+  invoiceNumber String @unique @db.VarChar(100)
+  vendorName String @db.VarChar(255)
+
+  amount    Decimal  @db.Decimal(15, 2)
+  currency  String   @default("USD") @db.VarChar(3)
+
+  invoiceDate DateTime
+  dueDate   DateTime
+
+  status    String   @default("Draft") @db.VarChar(50)
+  // Status: 'Draft', 'Submitted', 'Approved', 'Paid', 'Cancelled'
+
+  createdBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  allocations InvoiceAllocation[]
+
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([invoiceDate])
+}
+
+model InvoiceAllocation {
+  id        String   @id @default(cuid())
+
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  wbsItemId String
+  wbsItem   WBSItem  @relation(fields: [wbsItemId], references: [id], onDelete: Cascade)
+
+  amount    Decimal  @db.Decimal(15, 2)
+  percentage Decimal @db.Decimal(5, 2) // Percentage of invoice
+
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([invoiceId, wbsItemId])
+  @@index([invoiceId])
+  @@index([wbsItemId])
+}
+
+// ============================================================================
+// WORKFLOW ENGINE
+// ============================================================================
+
+model WorkflowTemplate {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name      String   @db.VarChar(255)
+  description String?
+
+  // Matching criteria
+  entityType String? @db.VarChar(20)
+  // Type: 'Program', 'Project', 'Initiative'
+
+  complexityBand String? @db.VarChar(20)
+  // Complexity: 'Low', 'Medium', 'High'
+
+  budgetMin Decimal? @db.Decimal(15, 2)
+  budgetMax Decimal? @db.Decimal(15, 2)
+
+  matchScore Int    @default(0)
+
+  isDefault Boolean @default(false)
+  isActive  Boolean @default(true)
+
+  createdBy String?
+  createdByUser User? @relation(fields: [createdBy], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  stages    WorkflowStage[]
+  instances WorkflowInstance[]
+
+  @@index([tenantId])
+  @@index([isActive])
+  @@index([entityType, complexityBand])
+}
+
+model WorkflowStage {
+  id        String   @id @default(cuid())
+  workflowTemplateId String
+  template  WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Cascade)
+
+  stageOrder Int
+  name      String   @db.VarChar(255)
+  description String?
+
+  slaHours  Int
+  actions   String[] @default(["Approve"])
+  // Actions: 'Approve', 'Reject', 'Return'
+
+  requireComment Boolean @default(false)
+  requireAttachment Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  responsibilities StageResponsibility[]
+  stageActions StageAction[]
+  workflowInstances WorkflowInstance[]
+
+  @@unique([workflowTemplateId, stageOrder])
+  @@index([workflowTemplateId])
+}
+
+model StageResponsibility {
+  id        String   @id @default(cuid())
+  stageId   String
+  stage     WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  type      String   @db.VarChar(50)
+  // Type: 'Role', 'Position', 'User'
+
+  value     String   @db.VarChar(255)
+  // Role name, Position ID, or User ID
+
+  scope     String   @db.VarChar(50)
+  // Scope: 'Global', 'Program', 'Project'
+
+  notificationMethod String @db.VarChar(50)
+  // Method: 'Email', 'InApp', 'Both'
+
+  createdAt DateTime @default(now())
+
+  @@index([stageId])
+}
+
+model WorkflowInstance {
+  id        String   @id @default(cuid())
+  workflowTemplateId String
+  template  WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id], onDelete: Restrict)
+
+  entityType String  @db.VarChar(20)
+  // Type: 'Program', 'Project', 'Initiative'
+
+  entityId  String
+
+  // Join with entity
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  requestType String @db.VarChar(20)
+  // Type: 'Create', 'Update', 'Close'
+
+  requestData Json    // JSON of requested changes
+
+  currentStageId String
+  currentStage WorkflowStage @relation(fields: [currentStageId], references: [id], onDelete: Restrict)
+
+  currentStageStarted DateTime
+  slaDue    DateTime
+
+  status    String   @default("InProgress") @db.VarChar(50)
+  // Status: 'InProgress', 'Approved', 'Rejected', 'Returned'
+
+  createdBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relationships
+  stageActions StageAction[]
+
+  @@index([workflowTemplateId])
+  @@index([entityType, entityId])
+  @@index([status])
+  @@index([slaDue])
+}
+
+model StageAction {
+  id        String   @id @default(cuid())
+
+  workflowInstanceId String
+  workflowInstance WorkflowInstance @relation(fields: [workflowInstanceId], references: [id], onDelete: Cascade)
+
+  stageId   String
+  stage     WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+
+  action    String   @db.VarChar(50)
+  // Action: 'Approve', 'Reject', 'Return'
+
+  actorId   String
+  actor     User     @relation(fields: [actorId], references: [id])
+
+  comment   String?
+
+  stageAssignedDate DateTime
+  hoursToAction Int?
+  wasOverdue Boolean @default(false)
+
+  actionDate DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([workflowInstanceId])
+  @@index([stageId])
+  @@index([actionDate])
+}
+
+// ============================================================================
+// AUDIT TRAIL
+// ============================================================================
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  entityType String  @db.VarChar(50)
+  entityId  String
+
+  action    String   @db.VarChar(50)
+  // Action: 'CREATE', 'UPDATE', 'DELETE', etc.
+
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+
+  changes   Json     // Before/after values
+  metadata  Json?    // Additional context
+
+  ipAddress String?  @db.VarChar(45)
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+}
