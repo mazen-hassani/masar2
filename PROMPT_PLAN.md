@@ -221,21 +221,43 @@ Status Legend:
 - **Git Commit**: 61c8de1 (feat: Implement CHUNK 3.1 - WBS Aggregation Service)
 
 ### Chunk 3.2: Workflow Templates & Instances
-- **Status**: 🚫 BLOCKED (waiting for 2.1)
-- **Description**: Workflow structure definition
-- **Dependencies**: 2.1
+- **Status**: ✅ COMPLETED
+- **Description**: Template-based approval workflows with stages, responsibilities, and actions
+- **Dependencies**: 2.1 (Projects)
 - **Time Estimate**: 2-3 hours
+- **Deliverables**:
+  - [x] Comprehensive workflow type definitions (workflow.ts - 470+ lines)
+  - [x] Enums: EntityType, ComplexityBand, WorkflowAction, ResponsibilityType, etc.
+  - [x] WorkflowTemplate with matching criteria
+  - [x] WorkflowStage with SLA hours and requirements
+  - [x] StageResponsibility for role/position/user assignment
+  - [x] WorkflowInstance for active workflow tracking
+  - [x] StageAction for approval/rejection/return audit trail
+  - [x] WorkflowTemplateService with CRUD and intelligent matching
+  - [x] WorkflowStageService for stage management
+  - [x] WorkflowInstanceService for workflow execution
+  - [x] StageActionService for action recording
+  - [x] WorkflowMetricsService for performance analytics
+  - [x] Template matching algorithm (score-based: entityType +30, complexityBand +20, budget +25, default +15)
+  - [x] SLA calculation: currentTime + stage.slaHours
+  - [x] Action timing: hoursToAction, wasOverdue flag
+  - [x] Comprehensive unit tests (workflow.test.ts - 650+ lines, 40+ tests)
+  - [x] Full documentation (CHUNK_3.2_SETUP.md)
+  - [x] npm run build succeeds ✓
+  - [x] All type checking passes ✓
+  - [x] ESLint validation passes ✓
+- **Git Commit**: b33db6d (Implement CHUNK 3.2: Workflow Templates & Instances)
 
 ### Chunk 3.3: Workflow Routing Algorithm
-- **Status**: 🚫 BLOCKED (waiting for 3.2)
+- **Status**: ⏳ PLANNED
 - **Description**: Match workflow to entity properties
-- **Dependencies**: 3.2
+- **Dependencies**: 3.2 ✅ (COMPLETED)
 - **Time Estimate**: 1-2 hours
 
 ### Chunk 3.4: Workflow Execution Engine
-- **Status**: 🚫 BLOCKED (waiting for 3.2)
+- **Status**: ⏳ PLANNED
 - **Description**: Process approval actions
-- **Dependencies**: 3.2
+- **Dependencies**: 3.2 ✅ (COMPLETED)
 - **Time Estimate**: 3-4 hours
 
 ### Chunk 3.5: Risk Inheritance
