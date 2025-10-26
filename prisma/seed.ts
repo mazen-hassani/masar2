@@ -316,7 +316,7 @@ async function main(): Promise<void> {
     },
   });
 
-  void await prisma.project.create({
+  const project4 = await prisma.project.create({
     data: {
       tenantId: tenant1.id,
       programId: null,
@@ -645,16 +645,53 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log('  ✓ Created 2 scoring criteria');
+  const criterion3 = await prisma.scoringCriterion.create({
+    data: {
+      tenantId: tenant1.id,
+      name: 'Financial Impact',
+      description: 'Expected financial return and cost efficiency',
+      minScore: 0,
+      maxScore: 100,
+      isActive: true,
+      createdBy: adminUser.id,
+    },
+  });
+
+  const criterion4 = await prisma.scoringCriterion.create({
+    data: {
+      tenantId: tenant1.id,
+      name: 'Feasibility',
+      description: 'Technical feasibility and resource availability',
+      minScore: 0,
+      maxScore: 100,
+      isActive: true,
+      createdBy: adminUser.id,
+    },
+  });
+
+  const criterion5 = await prisma.scoringCriterion.create({
+    data: {
+      tenantId: tenant1.id,
+      name: 'Timeline Feasibility',
+      description: 'Realistic timeline to completion',
+      minScore: 0,
+      maxScore: 100,
+      isActive: true,
+      createdBy: adminUser.id,
+    },
+  });
+
+  console.log('  ✓ Created 5 scoring criteria');
 
   // Score the projects
   console.log('  Creating project scores...');
-  // Project 1 scores
+
+  // Project 1 scores (EHR Implementation)
   await prisma.projectScoring.create({
     data: {
       projectId: project1.id,
       criterionId: criterion1.id,
-      weight: 0.6,
+      weight: 0.25,
       score: 85,
       justification: 'Excellent alignment with digital transformation strategy',
       evaluatedBy: adminUser.id,
@@ -665,19 +702,52 @@ async function main(): Promise<void> {
     data: {
       projectId: project1.id,
       criterionId: criterion2.id,
-      weight: 0.4,
+      weight: 0.2,
       score: 70,
-      justification: 'Moderate risk due to tight timeline',
+      justification: 'Moderate risk due to tight timeline and integration complexity',
       evaluatedBy: adminUser.id,
     },
   });
 
-  // Project 2 scores
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project1.id,
+      criterionId: criterion3.id,
+      weight: 0.25,
+      score: 78,
+      justification: 'Good ROI expected with operational efficiencies',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project1.id,
+      criterionId: criterion4.id,
+      weight: 0.15,
+      score: 72,
+      justification: 'Proven technology stack but complex integration needed',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project1.id,
+      criterionId: criterion5.id,
+      weight: 0.15,
+      score: 65,
+      justification: 'Ambitious timeline with multiple dependencies',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  // Project 2 scores (Pharmacy Integration)
   await prisma.projectScoring.create({
     data: {
       projectId: project2.id,
       criterionId: criterion1.id,
-      weight: 0.6,
+      weight: 0.25,
       score: 75,
       justification: 'Good alignment with healthcare integration goals',
       evaluatedBy: adminUser.id,
@@ -688,19 +758,52 @@ async function main(): Promise<void> {
     data: {
       projectId: project2.id,
       criterionId: criterion2.id,
-      weight: 0.4,
+      weight: 0.2,
       score: 65,
       justification: 'Integration complexity introduces moderate risk',
       evaluatedBy: adminUser.id,
     },
   });
 
-  // Project 3 scores
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project2.id,
+      criterionId: criterion3.id,
+      weight: 0.25,
+      score: 82,
+      justification: 'Strong cost savings from operational improvements',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project2.id,
+      criterionId: criterion4.id,
+      weight: 0.15,
+      score: 80,
+      justification: 'Mature integration platform available',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project2.id,
+      criterionId: criterion5.id,
+      weight: 0.15,
+      score: 75,
+      justification: 'Realistic timeline with manageable milestones',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  // Project 3 scores (Analytics Dashboard)
   await prisma.projectScoring.create({
     data: {
       projectId: project3.id,
       criterionId: criterion1.id,
-      weight: 0.6,
+      weight: 0.25,
       score: 90,
       justification: 'Critical strategic importance for data-driven decisions',
       evaluatedBy: adminUser.id,
@@ -711,14 +814,103 @@ async function main(): Promise<void> {
     data: {
       projectId: project3.id,
       criterionId: criterion2.id,
-      weight: 0.4,
+      weight: 0.2,
       score: 55,
       justification: 'High technical complexity and timeline pressure',
       evaluatedBy: adminUser.id,
     },
   });
 
-  console.log('  ✓ Scored 3 projects with multiple criteria');
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project3.id,
+      criterionId: criterion3.id,
+      weight: 0.25,
+      score: 88,
+      justification: 'Significant value from insights and reporting improvements',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project3.id,
+      criterionId: criterion4.id,
+      weight: 0.15,
+      score: 68,
+      justification: 'Emerging tech stack requires skill development',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project3.id,
+      criterionId: criterion5.id,
+      weight: 0.15,
+      score: 60,
+      justification: 'Aggressive schedule with potential delays in data preparation',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  // Project 4 scores (Standalone Security Audit)
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project4.id,
+      criterionId: criterion1.id,
+      weight: 0.25,
+      score: 70,
+      justification: 'Supports regulatory compliance objectives',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project4.id,
+      criterionId: criterion2.id,
+      weight: 0.2,
+      score: 85,
+      justification: 'Well-defined scope minimizes execution risk',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project4.id,
+      criterionId: criterion3.id,
+      weight: 0.25,
+      score: 60,
+      justification: 'Limited direct financial returns but necessary for compliance',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project4.id,
+      criterionId: criterion4.id,
+      weight: 0.15,
+      score: 90,
+      justification: 'Clear requirements and available expertise',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  await prisma.projectScoring.create({
+    data: {
+      projectId: project4.id,
+      criterionId: criterion5.id,
+      weight: 0.15,
+      score: 92,
+      justification: 'Simple project with short, achievable timeline',
+      evaluatedBy: adminUser.id,
+    },
+  });
+
+  console.log('  ✓ Created 5 criteria and scored 4 projects (20 total scores)');
 
   console.log('✅ Database seeded successfully!');
 }
