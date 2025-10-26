@@ -27,6 +27,7 @@ import {
   PermissionVerificationResult,
   WorkflowCompletionResult,
 } from '@/types/workflow';
+import { WorkflowNotificationIntegration } from './workflow-notification-integration';
 
 const prisma = new PrismaClient();
 
@@ -313,6 +314,10 @@ export class WorkflowInstanceService {
         createdBy,
       },
     });
+
+    // Send notification about workflow creation
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    WorkflowNotificationIntegration.notifyWorkflowCreated(instance.id, tenantId, createdBy);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return instance as any;
@@ -821,6 +826,15 @@ export class WorkflowExecutor {
           const advanced = await WorkflowInstanceService.advanceWorkflow(instanceId, stageId);
           nextStageId = advanced?.currentStageId;
           workflowStatus = advanced?.status || 'InProgress';
+          // Send notification about stage advancement
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          WorkflowNotificationIntegration.notifyWorkflowAdvanced(
+            instanceId,
+            context.tenantId,
+            nextStageId || '',
+            stageId,
+            context.actorId
+          );
         } else {
           // Workflow complete
           await prisma.workflowInstance.update({
@@ -828,6 +842,13 @@ export class WorkflowExecutor {
             data: { status: 'Approved' },
           });
           workflowStatus = 'Approved';
+          // Send notification about approval
+          // eslint-disable-next-line @typescript-eslint/no-floating-promises
+          WorkflowNotificationIntegration.notifyWorkflowApproved(
+            instanceId,
+            context.tenantId,
+            context.actorId
+          );
         }
       } else if (action === 'Rejected') {
         await prisma.workflowInstance.update({
@@ -835,6 +856,14 @@ export class WorkflowExecutor {
           data: { status: 'Rejected' },
         });
         workflowStatus = 'Rejected';
+        // Send notification about rejection
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        WorkflowNotificationIntegration.notifyWorkflowRejected(
+          instanceId,
+          context.tenantId,
+          context.actorId,
+          comment
+        );
       } else if (action === 'Returned') {
         if (!returnToStageId) {
           throw new Error('Return action requires returnToStageId');
@@ -864,6 +893,15 @@ export class WorkflowExecutor {
 
         nextStageId = returnToStageId;
         workflowStatus = 'Returned';
+        // Send notification about return
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        WorkflowNotificationIntegration.notifyWorkflowReturned(
+          instanceId,
+          context.tenantId,
+          context.actorId,
+          returnStage.name,
+          comment
+        );
       }
 
       return {
