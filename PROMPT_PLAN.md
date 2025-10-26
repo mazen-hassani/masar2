@@ -197,10 +197,28 @@ Status Legend:
 ## PHASE 3: BUSINESS LOGIC
 
 ### Chunk 3.1: WBS Aggregation Service
-- **Status**: 🚫 BLOCKED (waiting for 2.2)
+- **Status**: ✅ COMPLETED
 - **Description**: Parent value calculations from children
 - **Dependencies**: 2.2
 - **Time Estimate**: 2-3 hours
+- **Deliverables**:
+  - [x] WBS aggregation type definitions (src/types/wbs-aggregation.ts, 310+ lines)
+  - [x] WBSAggregationService with 10 core methods (src/lib/services/wbs-aggregation-service.ts, 480+ lines)
+    - calculateParentDates: earliest start, latest end
+    - calculateParentStatus: priority-based (Delayed > InProgress > ... > Completed)
+    - calculateParentProgress: cost/equal/hybrid weighting strategies
+    - calculateParentCost: recursive cost summation
+    - aggregateParentValues: combined aggregation
+    - getAggregationResult: complete result with timestamp
+    - getAggregationSummary: human-readable summary
+    - updateParentAggregatedValues: single parent database update
+    - updateAncestorsAggregation: recursive parent hierarchy updates
+    - updateProjectHierarchyAggregation: bulk project tree updates
+  - [x] Comprehensive unit tests (35 tests, all passing)
+  - [x] CHUNK_3.1_SETUP.md documentation (650+ lines)
+  - [x] npm run build succeeds ✓
+  - [x] All 35 tests pass ✓
+- **Git Commit**: 61c8de1 (feat: Implement CHUNK 3.1 - WBS Aggregation Service)
 
 ### Chunk 3.2: Workflow Templates & Instances
 - **Status**: 🚫 BLOCKED (waiting for 2.1)
