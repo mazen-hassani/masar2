@@ -438,7 +438,7 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.wBSItem.create({
+  const dataWarehouse = await prisma.wBSItem.create({
     data: {
       projectId: project3.id,
       parentId: reporting.id,
@@ -454,7 +454,170 @@ async function main(): Promise<void> {
     },
   });
 
-  console.log('  ✓ Created WBS structure with 6 items');
+  // Create tasks under data warehouse
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project3.id,
+      parentId: dataWarehouse.id,
+      level: 2,
+      name: 'Schema Design & Setup',
+      status: 'Completed',
+      plannedStartDate: new Date('2024-03-15'),
+      plannedEndDate: new Date('2024-04-15'),
+      actualStartDate: new Date('2024-03-15'),
+      actualEndDate: new Date('2024-04-10'),
+      percentComplete: 100,
+      plannedCost: 30000,
+      actualCost: 28000,
+      ownerId: teamMember.id,
+    },
+  });
+
+  // More tasks for project1 - create another Frontend task
+  const frontend = await prisma.wBSItem.create({
+    data: {
+      projectId: project1.id,
+      parentId: phase2.id,
+      level: 1,
+      name: 'QA & Testing',
+      status: 'NotStarted',
+      plannedStartDate: new Date('2024-08-01'),
+      plannedEndDate: new Date('2024-09-30'),
+      percentComplete: 0,
+      plannedCost: 80000,
+      actualCost: 0,
+      ownerId: teamMember.id,
+    },
+  });
+
+  // Create test cases task
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project1.id,
+      parentId: frontend.id,
+      level: 2,
+      name: 'Test Case Development',
+      status: 'NotStarted',
+      plannedStartDate: new Date('2024-08-01'),
+      plannedEndDate: new Date('2024-08-31'),
+      percentComplete: 0,
+      plannedCost: 30000,
+      actualCost: 0,
+      ownerId: teamMember.id,
+    },
+  });
+
+  // Create API integration task
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project1.id,
+      parentId: backend.id,
+      level: 2,
+      name: 'API Development & Integration',
+      status: 'InProgress',
+      plannedStartDate: new Date('2024-05-01'),
+      plannedEndDate: new Date('2024-08-31'),
+      percentComplete: 65,
+      plannedCost: 60000,
+      actualCost: 20000,
+      ownerId: pmUser.id,
+    },
+  });
+
+  // Create WBS Configuration for project2
+  await prisma.wBSConfiguration.create({
+    data: {
+      projectId: project2.id,
+      levels: 2,
+      levelNames: ['Workstream', 'Task'],
+    },
+  });
+
+  // Create WBS items for project 2 (Pharmacy Integration)
+  const integration = await prisma.wBSItem.create({
+    data: {
+      projectId: project2.id,
+      level: 0,
+      name: 'Pharmacy Integration',
+      status: 'Pending',
+      plannedStartDate: new Date('2024-06-01'),
+      plannedEndDate: new Date('2024-12-31'),
+      percentComplete: 10,
+      plannedCost: 200000,
+      actualCost: 5000,
+      ownerId: pmUser.id,
+    },
+  });
+
+  // Requirements and design
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project2.id,
+      parentId: integration.id,
+      level: 1,
+      name: 'Requirements & Design',
+      status: 'InProgress',
+      plannedStartDate: new Date('2024-06-01'),
+      plannedEndDate: new Date('2024-07-31'),
+      percentComplete: 90,
+      plannedCost: 40000,
+      actualCost: 5000,
+      ownerId: teamMember.id,
+    },
+  });
+
+  // Development workstream
+  const development = await prisma.wBSItem.create({
+    data: {
+      projectId: project2.id,
+      parentId: integration.id,
+      level: 1,
+      name: 'Development & Deployment',
+      status: 'NotStarted',
+      plannedStartDate: new Date('2024-08-01'),
+      plannedEndDate: new Date('2024-11-30'),
+      percentComplete: 0,
+      plannedCost: 120000,
+      actualCost: 0,
+      ownerId: pmUser.id,
+    },
+  });
+
+  // System integration tasks
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project2.id,
+      parentId: development.id,
+      level: 2,
+      name: 'System Integration',
+      status: 'NotStarted',
+      plannedStartDate: new Date('2024-08-01'),
+      plannedEndDate: new Date('2024-10-31'),
+      percentComplete: 0,
+      plannedCost: 70000,
+      actualCost: 0,
+      ownerId: teamMember.id,
+    },
+  });
+
+  // UAT task
+  await prisma.wBSItem.create({
+    data: {
+      projectId: project2.id,
+      parentId: development.id,
+      level: 2,
+      name: 'User Acceptance Testing',
+      status: 'NotStarted',
+      plannedStartDate: new Date('2024-10-15'),
+      plannedEndDate: new Date('2024-11-30'),
+      percentComplete: 0,
+      plannedCost: 50000,
+      actualCost: 0,
+      ownerId: teamMember.id,
+    },
+  });
+
+  console.log('  ✓ Created WBS structure with 15 items across 3 projects');
 
   // Create scoring criteria
   console.log('  Creating scoring criteria...');
