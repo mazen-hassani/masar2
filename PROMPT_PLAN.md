@@ -245,10 +245,19 @@ Status Legend:
 - **Time Estimate**: 1-2 hours
 
 ### Chunk 3.6: Financial Calculations
-- **Status**: 🚫 BLOCKED (waiting for 2.5)
+- **Status**: ✅ COMPLETED
 - **Description**: Cost rollup and invoice allocation
 - **Dependencies**: 2.5, 3.1
 - **Time Estimate**: 2-3 hours
+- **Deliverables**:
+  - [x] Financial calculation type definitions (450+ lines)
+  - [x] CostRollupService with 3 methods (item, project, by-level rollup)
+  - [x] BudgetForecastService with earned value analysis (EV, CPI, SPI, FAC, ETC)
+  - [x] FinancialAnalyticsService for health checks & allocation efficiency
+  - [x] 52 comprehensive unit tests (all passing)
+  - [x] CHUNK_3.6_SETUP.md documentation (450+ lines)
+  - [x] Production build successful ✓
+- **Git Commit**: cc5d20d (feat: Implement CHUNK 3.6 - Financial Calculations Service)
 
 ---
 
