@@ -249,15 +249,32 @@ Status Legend:
 - **Git Commit**: b33db6d (Implement CHUNK 3.2: Workflow Templates & Instances)
 
 ### Chunk 3.3: Workflow Routing Algorithm
-- **Status**: ⏳ PLANNED
-- **Description**: Match workflow to entity properties
+- **Status**: ✅ COMPLETED
+- **Description**: Pure function-based workflow routing with score-based template matching
 - **Dependencies**: 3.2 ✅ (COMPLETED)
 - **Time Estimate**: 1-2 hours
+- **Deliverables**:
+  - [x] WorkflowRouter pure routing service (180+ lines)
+  - [x] routeWorkflow() - Main routing with template scoring
+  - [x] calculateScore() - Pure function scoring (Budget 30, Complexity 20, Type 10)
+  - [x] getDefaultTemplate() - Default template retrieval with fallback
+  - [x] filterByEntityType() - Pre-filter templates by entity type (null = wildcard)
+  - [x] rankTemplates() - Get all templates ranked by score
+  - [x] Score-based matching algorithm with deterministic results
+  - [x] No database access - pure functions working with in-memory arrays
+  - [x] Comprehensive unit tests (18 tests for routing, scoring, utilities)
+  - [x] Budget priority (30 pts) > Complexity (20 pts) > Type (10 pts)
+  - [x] Default template bonus (5 pts) as tiebreaker
+  - [x] Full documentation (CHUNK_3.3_SETUP.md)
+  - [x] npm run build succeeds ✓
+  - [x] All type checking passes ✓
+  - [x] ESLint validation passes ✓
+- **Git Commit**: 08783b0 (Implement CHUNK 3.3: Workflow Routing Algorithm)
 
 ### Chunk 3.4: Workflow Execution Engine
 - **Status**: ⏳ PLANNED
-- **Description**: Process approval actions
-- **Dependencies**: 3.2 ✅ (COMPLETED)
+- **Description**: Process approval actions (Approve/Reject/Return), verify permissions, execute requests
+- **Dependencies**: 3.2 ✅ (COMPLETED), 3.3 ✅ (COMPLETED)
 - **Time Estimate**: 3-4 hours
 
 ### Chunk 3.5: Risk Inheritance
