@@ -368,14 +368,21 @@ model Benefit {
   targetValue Decimal @db.Decimal(15, 2)
   targetDate DateTime
 
+  // Achievement tracking
+  actualValue Decimal? @db.Decimal(15, 2)
+  achievedDate DateTime?
+
+  // Audit
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   // Relationships
   kpis      KPI[]
 
   @@index([programId])
   @@index([projectId])
+  @@index([deletedAt])
 }
 
 model KPI {
@@ -460,10 +467,12 @@ model Risk {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  deletedAt DateTime?
 
   @@index([programId])
   @@index([projectId])
   @@index([status])
+  @@index([deletedAt])
 }
 
 // ============================================================================

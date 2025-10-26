@@ -912,6 +912,196 @@ async function main(): Promise<void> {
 
   console.log('  ✓ Created 5 criteria and scored 4 projects (20 total scores)');
 
+  // Create program-level risks
+  console.log('  Creating risks and benefits...');
+
+  // Program risks
+  await prisma.risk.create({
+    data: {
+      programId: program1.id,
+      name: 'Technology Obsolescence',
+      description: 'Selected technology stack may become obsolete during long implementation',
+      category: 'Technical',
+      probability: 2,
+      impact: 4,
+      riskScore: 8,
+      mitigation: 'Regular technology assessment and vendor evaluation',
+      contingency: 'Plan for technology refresh or migration',
+      owner: pmUser.id,
+      status: 'Open',
+    },
+  });
+
+  await prisma.risk.create({
+    data: {
+      programId: program1.id,
+      name: 'Budget Overrun',
+      description: 'Scope creep and unforeseen technical challenges may increase costs',
+      category: 'Financial',
+      probability: 3,
+      impact: 4,
+      riskScore: 12,
+      mitigation: 'Strict change management and contingency budget (15%)',
+      contingency: 'Reduce scope or extend timeline',
+      owner: sponsorUser.id,
+      status: 'Open',
+    },
+  });
+
+  // Project risks
+  await prisma.risk.create({
+    data: {
+      projectId: project1.id,
+      name: 'Integration Complexity',
+      description: 'Legacy system integration may be more complex than anticipated',
+      category: 'Technical',
+      probability: 4,
+      impact: 3,
+      riskScore: 12,
+      mitigation: 'Dedicated integration team and early proof-of-concept',
+      contingency: 'Extend timeline or use integration platform',
+      owner: pmUser.id,
+      status: 'Open',
+    },
+  });
+
+  await prisma.risk.create({
+    data: {
+      projectId: project2.id,
+      name: 'Regulatory Compliance',
+      description: 'Pharmacy integration may require additional regulatory approvals',
+      category: 'Legal',
+      probability: 3,
+      impact: 5,
+      riskScore: 15,
+      mitigation: 'Early engagement with regulatory authorities',
+      contingency: 'Delay implementation until approvals obtained',
+      owner: sponsorUser.id,
+      status: 'Open',
+    },
+  });
+
+  await prisma.risk.create({
+    data: {
+      projectId: project3.id,
+      name: 'Data Quality Issues',
+      description: 'Historical data quality may be poor, affecting dashboard accuracy',
+      category: 'Operational',
+      probability: 2,
+      impact: 3,
+      riskScore: 6,
+      mitigation: 'Data quality assessment and cleansing activities',
+      contingency: 'Implement data quality monitoring',
+      owner: pmUser.id,
+      status: 'Mitigated',
+    },
+  });
+
+  console.log('  ✓ Created 5 risks');
+
+  // Create program-level benefits
+  const benefit1 = await prisma.benefit.create({
+    data: {
+      programId: program1.id,
+      name: 'Operational Efficiency Gains',
+      description: 'Reduced manual processes and improved data accessibility',
+      category: 'Operational',
+      targetValue: 250000, // Cost savings
+      targetDate: new Date('2025-12-31'),
+    },
+  });
+
+  const benefit2 = await prisma.benefit.create({
+    data: {
+      projectId: project1.id,
+      name: 'Patient Experience Improvement',
+      description: 'Better access to health records and faster service delivery',
+      category: 'Social',
+      targetValue: 85, // Satisfaction score out of 100
+      targetDate: new Date('2025-06-30'),
+    },
+  });
+
+  // Update benefit2 with actual values
+  await prisma.benefit.update({
+    where: { id: benefit2.id },
+    data: {
+      actualValue: 78,
+      achievedDate: new Date('2025-08-15'),
+    },
+  });
+
+  const benefit3 = await prisma.benefit.create({
+    data: {
+      projectId: project2.id,
+      name: 'Pharmacy Error Reduction',
+      description: 'Reduced medication errors through automated integration',
+      category: 'Operational',
+      targetValue: 90, // % reduction
+      targetDate: new Date('2025-09-30'),
+    },
+  });
+
+  const benefit4 = await prisma.benefit.create({
+    data: {
+      projectId: project3.id,
+      name: 'Improved Decision Making',
+      description: 'Real-time data analytics enabling faster decision making',
+      category: 'Strategic',
+      targetValue: 30, // % improvement in decision speed
+      targetDate: new Date('2025-12-31'),
+    },
+  });
+
+  console.log('  ✓ Created 4 benefits');
+
+  // Create KPIs for benefits
+  await prisma.kPI.create({
+    data: {
+      benefitId: benefit1.id,
+      name: 'Cost Savings Realized',
+      unit: 'USD',
+      baseline: 0,
+      target: 250000,
+      collectionCadence: 'Monthly',
+    },
+  });
+
+  await prisma.kPI.create({
+    data: {
+      benefitId: benefit2.id,
+      name: 'Patient Satisfaction Score',
+      unit: 'Percentage',
+      baseline: 65,
+      target: 85,
+      collectionCadence: 'Quarterly',
+    },
+  });
+
+  await prisma.kPI.create({
+    data: {
+      benefitId: benefit3.id,
+      name: 'Medication Error Rate Reduction',
+      unit: 'Percentage',
+      baseline: 100,
+      target: 10,
+      collectionCadence: 'Monthly',
+    },
+  });
+
+  await prisma.kPI.create({
+    data: {
+      benefitId: benefit4.id,
+      name: 'Decision Cycle Time',
+      unit: 'Days',
+      baseline: 14,
+      target: 10,
+      collectionCadence: 'Monthly',
+    },
+  });
+
+  console.log('  ✓ Created 4 KPIs with baselines and targets');
+
   console.log('✅ Database seeded successfully!');
 }
 
