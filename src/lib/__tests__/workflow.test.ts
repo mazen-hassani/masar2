@@ -10,6 +10,7 @@ import {
   WorkflowInstanceService,
   StageActionService,
   WorkflowMetricsService,
+  WorkflowRouter,
 } from '@/lib/services/workflow-service';
 import {
   CreateWorkflowTemplateRequest,
@@ -926,6 +927,230 @@ describe('Workflow Service Tests', () => {
       expect(result.totalRejected).toBe(1);
       expect(result.approvalRate).toBeCloseTo(50, 1);
       expect(result.rejectionRate).toBeCloseTo(50, 1);
+    });
+  });
+
+  describe('WorkflowRouter', () => {
+    const mockTemplates = [
+      {
+        id: 'template-1',
+        name: 'Project Workflow',
+        entityType: 'Project',
+        complexityBand: 'Medium',
+        budgetMin: 10000,
+        budgetMax: 100000,
+        isDefault: false,
+      },
+      {
+        id: 'template-2',
+        name: 'Program Workflow',
+        entityType: 'Program',
+        complexityBand: 'High',
+        budgetMin: 100000,
+        budgetMax: 1000000,
+        isDefault: false,
+      },
+      {
+        id: 'template-default',
+        name: 'Default Workflow',
+        entityType: null,
+        complexityBand: null,
+        budgetMin: null,
+        budgetMax: null,
+        isDefault: true,
+      },
+    ];
+
+    it('should route to template with highest score', () => {
+      const result = WorkflowRouter.routeWorkflow(
+        mockTemplates,
+        'Project',
+        'Medium',
+        50000
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.template.id).toBe('template-1');
+      expect(result?.matchScore).toBeGreaterThan(0);
+      expect(result?.matchReasons.length).toBeGreaterThan(0);
+    });
+
+    it('should prioritize budget matching (30 points)', () => {
+      const result = WorkflowRouter.routeWorkflow(
+        mockTemplates,
+        'Project',
+        undefined,
+        50000
+      );
+
+      expect(result?.matchScore).toBeGreaterThanOrEqual(30);
+      expect(result?.matchReasons).toContain('Budget in range: 10000-100000');
+    });
+
+    it('should prioritize complexity matching (20 points)', () => {
+      const result = WorkflowRouter.routeWorkflow(
+        mockTemplates,
+        'Project',
+        'Medium',
+        undefined
+      );
+
+      expect(result?.matchReasons).toContain('Complexity matches: Medium');
+    });
+
+    it('should match on entity type (10 points)', () => {
+      const result = WorkflowRouter.routeWorkflow(
+        mockTemplates,
+        'Project',
+        undefined,
+        undefined
+      );
+
+      expect(result?.matchReasons).toContain('Entity type matches: Project');
+    });
+
+    it('should fallback to default template when no exact match', () => {
+      const result = WorkflowRouter.routeWorkflow(
+        mockTemplates,
+        'Initiative', // No initiative-specific template
+        undefined,
+        undefined
+      );
+
+      expect(result?.template.isDefault).toBe(true);
+      expect(result?.template.id).toBe('template-default');
+    });
+
+    it('should return null for empty template list', () => {
+      const result = WorkflowRouter.routeWorkflow([], 'Project');
+
+      expect(result).toBeNull();
+    });
+
+    it('should calculate score correctly for single template', () => {
+      const template = mockTemplates[0];
+      const score = WorkflowRouter.calculateScore(template, 'Project', 'Medium', 50000);
+
+      expect(score).toBeGreaterThanOrEqual(60); // Budget (30) + Complexity (20) + Type (10)
+    });
+
+    it('should find default template from list', () => {
+      const defaultTemplate = WorkflowRouter.getDefaultTemplate(mockTemplates);
+
+      expect(defaultTemplate).not.toBeNull();
+      expect(defaultTemplate?.isDefault).toBe(true);
+      expect(defaultTemplate?.id).toBe('template-default');
+    });
+
+    it('should return null when no default template', () => {
+      const noDefaultTemplates = mockTemplates.filter((t) => !t.isDefault);
+      const defaultTemplate = WorkflowRouter.getDefaultTemplate(noDefaultTemplates);
+
+      expect(defaultTemplate).toBeNull();
+    });
+
+    it('should filter templates by entity type', () => {
+      const filtered = WorkflowRouter.filterByEntityType(mockTemplates, 'Project');
+
+      expect(filtered.length).toBeGreaterThan(0);
+      expect(filtered.some((t) => t.entityType === 'Project' || t.entityType === null)).toBe(true);
+      expect(filtered.some((t) => t.entityType === 'Program')).toBe(false);
+    });
+
+    it('should include wildcard templates in filter (null entityType)', () => {
+      const filtered = WorkflowRouter.filterByEntityType(mockTemplates, 'Initiative');
+
+      expect(filtered.length).toBeGreaterThan(0);
+      expect(filtered.some((t) => t.isDefault)).toBe(true); // Default has null entityType
+    });
+
+    it('should rank templates by score', () => {
+      const ranked = WorkflowRouter.rankTemplates(
+        mockTemplates,
+        'Project',
+        'Medium',
+        50000
+      );
+
+      expect(ranked.length).toBe(mockTemplates.length);
+      expect(ranked[0].score).toBeGreaterThanOrEqual(ranked[1].score);
+      expect(ranked[0].template.id).toBe('template-1');
+    });
+
+    it('should handle score calculation with no budget', () => {
+      const score = WorkflowRouter.calculateScore(mockTemplates[0], 'Project', 'Medium');
+
+      expect(score).toBe(30); // Complexity (20) + Type (10), no budget
+    });
+
+    it('should handle score calculation with no complexity', () => {
+      const score = WorkflowRouter.calculateScore(mockTemplates[0], 'Project', undefined, 50000);
+
+      expect(score).toBe(40); // Budget (30) + Type (10), no complexity
+    });
+
+    it('should handle budget boundary conditions', () => {
+      const template = mockTemplates[0]; // budgetMin: 10000, budgetMax: 100000
+
+      // Exactly at min
+      let score = WorkflowRouter.calculateScore(template, 'Project', undefined, 10000);
+      expect(score).toBe(30);
+
+      // Exactly at max
+      score = WorkflowRouter.calculateScore(template, 'Project', undefined, 100000);
+      expect(score).toBe(30);
+
+      // Below min
+      score = WorkflowRouter.calculateScore(template, 'Project', undefined, 9999);
+      expect(score).toBe(0);
+
+      // Above max
+      score = WorkflowRouter.calculateScore(template, 'Project', undefined, 100001);
+      expect(score).toBe(0);
+    });
+
+    it('should prefer default template on score tie', () => {
+      const templatesWithTie = [
+        {
+          id: 'template-a',
+          name: 'Template A',
+          entityType: 'Project',
+          complexityBand: null,
+          budgetMin: null,
+          budgetMax: null,
+          isDefault: false,
+        },
+        {
+          id: 'template-default',
+          name: 'Default',
+          entityType: 'Project',
+          complexityBand: null,
+          budgetMin: null,
+          budgetMax: null,
+          isDefault: true,
+        },
+      ];
+
+      const result = WorkflowRouter.routeWorkflow(templatesWithTie, 'Project');
+
+      // Both score 10 for entity type match, but default should be chosen
+      expect(result?.template.isDefault).toBe(true);
+    });
+
+    it('should handle null budget fields in template', () => {
+      const templateWithNullBudget = {
+        id: 'template-1',
+        name: 'Template',
+        entityType: 'Project',
+        complexityBand: null,
+        budgetMin: null,
+        budgetMax: null,
+        isDefault: false,
+      };
+
+      const score = WorkflowRouter.calculateScore(templateWithNullBudget, 'Project', undefined, 50000);
+
+      expect(score).toBe(10); // Only entity type match, budget check fails with null
     });
   });
 });

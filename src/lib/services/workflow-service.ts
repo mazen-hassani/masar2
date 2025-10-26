@@ -562,3 +562,189 @@ export class WorkflowMetricsService {
     };
   }
 }
+
+// ============================================================================
+// WORKFLOW ROUTER SERVICE
+// ============================================================================
+
+export class WorkflowRouter {
+  /**
+   * Route workflow - Pure function that matches templates to entities
+   * No database access, works with passed-in templates
+   * Scoring: Budget (30 pts) > Complexity (20 pts) > Type (10 pts)
+   */
+  static routeWorkflow(
+    templates: Array<{
+      id: string;
+      name: string;
+      entityType: string | null;
+      complexityBand: string | null;
+      budgetMin: number | null;
+      budgetMax: number | null;
+      isDefault: boolean;
+    }>,
+    entityType: string,
+    complexityBand?: string | null,
+    budget?: number | null
+  ): WorkflowMatch | null {
+    if (templates.length === 0) return null;
+
+    let bestTemplate = templates[0];
+    let bestScore = 0;
+    const matchReasons: string[] = [];
+
+    for (const template of templates) {
+      let score = 0;
+      const reasons: string[] = [];
+
+      // Budget range match (30 points)
+      if (budget !== null && budget !== undefined) {
+        const min = template.budgetMin ? Number(template.budgetMin) : 0;
+        const max = template.budgetMax ? Number(template.budgetMax) : Number.MAX_SAFE_INTEGER;
+
+        if (budget >= min && budget <= max) {
+          score += 30;
+          reasons.push(`Budget in range: ${min}-${max}`);
+        }
+      }
+
+      // Complexity band match (20 points)
+      if (complexityBand && template.complexityBand === complexityBand) {
+        score += 20;
+        reasons.push(`Complexity matches: ${complexityBand}`);
+      }
+
+      // Entity type match (10 points)
+      if (template.entityType === entityType) {
+        score += 10;
+        reasons.push(`Entity type matches: ${entityType}`);
+      }
+
+      // Default template bonus (5 points)
+      if (template.isDefault) {
+        score += 5;
+      }
+
+      if (score > bestScore || (score === bestScore && template.isDefault)) {
+        bestScore = score;
+        bestTemplate = template;
+        matchReasons.length = 0;
+        matchReasons.push(...reasons);
+      }
+    }
+
+    return {
+      template: bestTemplate as WorkflowTemplate,
+      matchScore: bestScore,
+      matchReasons,
+    };
+  }
+
+  /**
+   * Calculate match score for a single template
+   * Pure function with no side effects
+   */
+  static calculateScore(
+    template: {
+      id: string;
+      name: string;
+      entityType: string | null;
+      complexityBand: string | null;
+      budgetMin: number | null;
+      budgetMax: number | null;
+      isDefault: boolean;
+    },
+    entityType: string,
+    complexityBand?: string | null,
+    budget?: number | null
+  ): number {
+    let score = 0;
+
+    // Budget range match (30 points - highest priority)
+    if (budget !== null && budget !== undefined) {
+      const min = template.budgetMin ? Number(template.budgetMin) : 0;
+      const max = template.budgetMax ? Number(template.budgetMax) : Number.MAX_SAFE_INTEGER;
+
+      if (budget >= min && budget <= max) {
+        score += 30;
+      }
+    }
+
+    // Complexity band match (20 points)
+    if (complexityBand && template.complexityBand === complexityBand) {
+      score += 20;
+    }
+
+    // Entity type match (10 points - lowest priority)
+    if (template.entityType === entityType) {
+      score += 10;
+    }
+
+    // Default template bonus (5 points)
+    if (template.isDefault) {
+      score += 5;
+    }
+
+    return score;
+  }
+
+  /**
+   * Find default template from list
+   * Used as fallback when no matches found
+   */
+  static getDefaultTemplate(
+    templates: Array<{
+      id: string;
+      name: string;
+      isDefault: boolean;
+    }>
+  ): typeof templates[0] | null {
+    return templates.find((t) => t.isDefault) || null;
+  }
+
+  /**
+   * Filter templates by entity type
+   * Pre-filters templates before scoring
+   */
+  static filterByEntityType(
+    templates: Array<{
+      id: string;
+      name: string;
+      entityType: string | null;
+    }>,
+    entityType: string
+  ): typeof templates {
+    return templates.filter(
+      (t) => t.entityType === entityType || t.entityType === null // null = wildcard
+    );
+  }
+
+  /**
+   * Sort templates by match score
+   * Used to get ranked list of candidates
+   */
+  static rankTemplates(
+    templates: Array<{
+      id: string;
+      name: string;
+      entityType: string | null;
+      complexityBand: string | null;
+      budgetMin: number | null;
+      budgetMax: number | null;
+      isDefault: boolean;
+    }>,
+    entityType: string,
+    complexityBand?: string | null,
+    budget?: number | null
+  ): Array<{
+    template: typeof templates[0];
+    score: number;
+  }> {
+    return templates
+      .map((template) => ({
+        template,
+        score: this.calculateScore(template, entityType, complexityBand, budget),
+      }))
+      .sort((a, b) => b.score - a.score);
+  }
+}
