@@ -106,16 +106,23 @@ Status Legend:
 ## PHASE 2: CORE MODELS
 
 ### Chunk 2.1: Program & Project Domain Models
-- **Status**: ⏳ PLANNED
+- **Status**: ✅ COMPLETED
 - **Description**: Prisma models for Programs and Projects
 - **Dependencies**: 1.2
 - **Time Estimate**: 2-3 hours
 - **Deliverables**:
-  - [ ] Program and Project models in Prisma
-  - [ ] Relationships configured
-  - [ ] Migration created
-  - [ ] Test data seeded
-- **Git Commit**: Not yet
+  - [x] Program and Project type definitions with DTOs
+  - [x] Zod validation schemas for creation and updates
+  - [x] ProgramService class with 6 CRUD methods
+  - [x] ProjectService class with 7 CRUD methods
+  - [x] Tenant-scoped queries on all operations
+  - [x] Financial statistics and filtering
+  - [x] Soft delete support
+  - [x] Test data with 4 programs and 4 projects
+  - [x] CHUNK_2.1_SETUP.md documentation (400+ lines)
+  - [x] All tests passing (35/35) ✓
+  - [x] npm run build succeeds ✓
+- **Git Commit**: 9307898 ([CHUNK 2.1] Program & Project Domain Models)
 
 ### Chunk 2.2: WBS Configuration & Structure
 - **Status**: ⏳ PLANNED
@@ -347,30 +354,33 @@ Status Legend:
 | Phase | Total Chunks | Completed | In Progress | Planned | Blocked |
 |-------|---|---|---|---|---|
 | 1 | 5 | 5 ✅ | 0 | 0 | 0 |
-| 2 | 6 | 0 | 0 | 6 | 0 |
+| 2 | 6 | 1 ✅ | 0 | 5 | 0 |
 | 3 | 6 | 0 | 0 | 0 | 6 |
 | 4 | 11 | 0 | 0 | 0 | 11 |
 | 5 | 4 | 0 | 0 | 0 | 4 |
 | 6 | 6 | 0 | 0 | 0 | 6 |
 | 7 | 8 | 0 | 0 | 0 | 8 |
 | 8 | 6 | 0 | 0 | 0 | 6 |
-| **TOTAL** | **51** | **5** ✅ | **0** | **6** | **40** |
+| **TOTAL** | **51** | **6** ✅ | **0** | **5** | **40** |
 
-**Progress**: 5/51 chunks completed (10%)**
+**Progress**: 6/51 chunks completed (12%)**
 **Phase 1 Progress**: 5/5 chunks done (100%) - FOUNDATION COMPLETE! ✅**
+**Phase 2 Progress**: 1/6 chunks done (17%) - Core Models Started! 🚀**
 
 ---
 
 ## NEXT STEPS
 
 1. ✅ Complete Phase 1: Foundation (all 5 chunks done!)
-2. 🚀 Start Phase 2, Chunk 2.1: Program & Project Domain Models
-   - Create Prisma models for Programs and Projects
-   - Set up relationships and validations
-   - Create test data seeding
+2. ✅ Complete Phase 2, Chunk 2.1: Program & Project Domain Models
+3. 🚀 Start Phase 2, Chunk 2.2: WBS Configuration & Structure
+   - Create WBSConfiguration model updates if needed
+   - Implement WBS aggregation service for parent-child calculations
+   - Add hierarchical task management utilities
+   - Create comprehensive WBS tests
    - Time estimate: 2-3 hours
 
-**Current Immediate Action**: Begin Phase 2, Chunk 2.1 (Program & Project Models)
+**Current Immediate Action**: Begin Phase 2, Chunk 2.2 (WBS Configuration & Structure)
 
 ---
 
