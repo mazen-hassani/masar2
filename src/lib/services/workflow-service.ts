@@ -8,6 +8,7 @@ import {
   WorkflowTemplate,
   WorkflowInstance,
   WorkflowStage,
+  WorkflowInstanceStatus,
   StageAction,
   WorkflowMatch,
   WorkflowMetrics,
@@ -19,6 +20,12 @@ import {
   ListWorkflowTemplatesFilter,
   ListWorkflowInstancesFilter,
   WorkflowMatchingCriteria,
+  ExecutionContext,
+  ActionExecutionRequest,
+  ExecutionResult,
+  SLAComplianceInfo,
+  PermissionVerificationResult,
+  WorkflowCompletionResult,
 } from '@/types/workflow';
 
 const prisma = new PrismaClient();
@@ -746,5 +753,250 @@ export class WorkflowRouter {
         score: this.calculateScore(template, entityType, complexityBand, budget),
       }))
       .sort((a, b) => b.score - a.score);
+  }
+}
+
+// ============================================================================
+// WORKFLOW EXECUTOR SERVICE
+// ============================================================================
+
+export class WorkflowExecutor {
+  /**
+   * Execute a workflow action (Approve, Reject, Return)
+   */
+  static async executeAction(
+    request: ActionExecutionRequest,
+    context: ExecutionContext
+  ): Promise<ExecutionResult> {
+    const { instanceId, stageId, action, comment, returnToStageId } = request;
+
+    try {
+      // Get workflow instance
+      const instance = await prisma.workflowInstance.findUnique({
+        where: { id: instanceId },
+        include: {
+          template: { include: { stages: true } },
+          currentStage: { include: { responsibilities: true } },
+        },
+      });
+
+      if (!instance) {
+        throw new Error(`Workflow instance not found: ${instanceId}`);
+      }
+
+      // Verify permission
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const permissionResult = await this.verifyPermission(instance as any, context);
+      if (!permissionResult.isAuthorized) {
+        throw new Error(`Not authorized: ${permissionResult.reason}`);
+      }
+
+      // Calculate SLA info
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const slaInfo = this.calculateSLACompliance(instance as any);
+
+      // Record the action
+      const stageAction = await StageActionService.recordAction({
+        workflowInstanceId: instanceId,
+        stageId,
+        action,
+        ...(comment && { comment }),
+        actorId: context.actorId,
+        stageAssignedDate: instance.currentStageStarted,
+      });
+
+      let nextStageId: string | undefined;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let workflowStatus = instance.status as any as WorkflowInstanceStatus;
+
+      // Process action
+      if (action === 'Approved') {
+        const nextStage = await WorkflowStageService.getNextStage(
+          instance.workflowTemplateId,
+          instance.currentStage!.stageOrder
+        );
+
+        if (nextStage) {
+          // Move to next stage
+          const advanced = await WorkflowInstanceService.advanceWorkflow(instanceId, stageId);
+          nextStageId = advanced?.currentStageId;
+          workflowStatus = advanced?.status || 'InProgress';
+        } else {
+          // Workflow complete
+          await prisma.workflowInstance.update({
+            where: { id: instanceId },
+            data: { status: 'Approved' },
+          });
+          workflowStatus = 'Approved';
+        }
+      } else if (action === 'Rejected') {
+        await prisma.workflowInstance.update({
+          where: { id: instanceId },
+          data: { status: 'Rejected' },
+        });
+        workflowStatus = 'Rejected';
+      } else if (action === 'Returned') {
+        if (!returnToStageId) {
+          throw new Error('Return action requires returnToStageId');
+        }
+
+        const returnStage = await prisma.workflowStage.findUnique({
+          where: { id: returnToStageId },
+        });
+
+        if (!returnStage) {
+          throw new Error(`Return stage not found: ${returnToStageId}`);
+        }
+
+        // Return to specified stage
+        const slaDue = new Date();
+        slaDue.setHours(slaDue.getHours() + returnStage.slaHours);
+
+        await prisma.workflowInstance.update({
+          where: { id: instanceId },
+          data: {
+            currentStageId: returnToStageId,
+            currentStageStarted: new Date(),
+            slaDue,
+            status: 'Returned',
+          },
+        });
+
+        nextStageId = returnToStageId;
+        workflowStatus = 'Returned';
+      }
+
+      return {
+        success: true,
+        instanceId,
+        actionId: stageAction.id,
+        action,
+        previousStageId: stageId,
+        ...(nextStageId && { nextStageId }),
+        workflowStatus,
+        slaInfo,
+        message: `Action ${action} recorded successfully`,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return {
+        success: false,
+        instanceId,
+        actionId: '',
+        action,
+        previousStageId: stageId,
+        workflowStatus: 'InProgress',
+        slaInfo: {
+          stageId,
+          stageName: '',
+          assignedAt: new Date(),
+          dueAt: new Date(),
+          isOverdue: false,
+          hoursUsed: 0,
+        },
+        error: errorMessage,
+        message: `Action execution failed: ${errorMessage}`,
+      };
+    }
+  }
+
+  /**
+   * Verify that actor has permission to execute action
+   */
+  static async verifyPermission(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    _instance: any,
+    context: ExecutionContext
+  ): Promise<PermissionVerificationResult> {
+    // For now, allow any authenticated user to perform actions
+    // In production, this would check role-based permissions against stage responsibilities
+    if (!context.actorId) {
+      return {
+        isAuthorized: false,
+        reason: 'Actor ID required',
+      };
+    }
+
+    // TODO: Integrate with RBAC system (CHUNK 2.6)
+    // Check if actor has one of the required roles for this stage
+    // For now, assume authorized
+    return {
+      isAuthorized: true,
+    };
+  }
+
+  /**
+   * Calculate SLA compliance information
+   */
+  static calculateSLACompliance(instance: WorkflowInstance & { currentStage?: WorkflowStage }): SLAComplianceInfo {
+    const now = new Date();
+    const assignedAt = instance.currentStageStarted;
+    const dueAt = instance.slaDue;
+
+    const msUsed = now.getTime() - assignedAt.getTime();
+    const hoursUsed = msUsed / (1000 * 60 * 60);
+
+    const msRemaining = dueAt.getTime() - now.getTime();
+    const hoursRemaining = msRemaining / (1000 * 60 * 60);
+
+    const isOverdue = msRemaining < 0;
+
+    return {
+      stageId: instance.currentStageId,
+      stageName: instance.currentStage?.name || 'Unknown',
+      assignedAt,
+      dueAt,
+      isOverdue,
+      ...(hoursRemaining >= 0 && { hoursRemaining: Math.round(hoursRemaining * 10) / 10 }),
+      hoursUsed: Math.round(hoursUsed * 10) / 10,
+    };
+  }
+
+  /**
+   * Get workflow completion result when all stages done
+   */
+  static async getCompletionResult(instanceId: string): Promise<WorkflowCompletionResult | null> {
+    const instance = await prisma.workflowInstance.findUnique({
+      where: { id: instanceId },
+      include: { stageActions: true },
+    });
+
+    if (!instance || instance.status !== 'Approved') {
+      return null;
+    }
+
+    const totalApprovalTime = (instance.updatedAt.getTime() - instance.createdAt.getTime()) / (1000 * 60 * 60 * 24);
+
+    return {
+      instanceId,
+      completedAt: instance.updatedAt,
+      totalStagesCompleted: instance.stageActions.length,
+      totalApprovalTime: Math.round(totalApprovalTime * 100) / 100,
+      requestExecuted: true, // In production, would actually execute the request
+    };
+  }
+
+  /**
+   * Check if workflow is overdue
+   */
+  static isOverdue(instance: WorkflowInstance): boolean {
+    const now = new Date();
+    return instance.slaDue < now && instance.status === 'InProgress';
+  }
+
+  /**
+   * Get list of overdue workflows
+   */
+  static async getOverdueWorkflows(tenantId: string): Promise<WorkflowInstance[]> {
+    const now = new Date();
+    const result = (await prisma.workflowInstance.findMany({
+      where: {
+        template: { tenantId },
+        slaDue: { lt: now },
+        status: 'InProgress',
+      },
+      include: { template: true, currentStage: true },
+    })) as any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    return result;
   }
 }

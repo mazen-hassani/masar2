@@ -11,6 +11,7 @@ import {
   StageActionService,
   WorkflowMetricsService,
   WorkflowRouter,
+  WorkflowExecutor,
 } from '@/lib/services/workflow-service';
 import {
   CreateWorkflowTemplateRequest,
@@ -1151,6 +1152,254 @@ describe('Workflow Service Tests', () => {
       const score = WorkflowRouter.calculateScore(templateWithNullBudget, 'Project', undefined, 50000);
 
       expect(score).toBe(10); // Only entity type match, budget check fails with null
+    });
+  });
+
+  // ============================================================================
+  // WORKFLOW EXECUTOR TESTS
+  // ============================================================================
+
+  describe('WorkflowExecutor', () => {
+    describe('calculateSLACompliance', () => {
+      it('should calculate SLA compliance for active stage', () => {
+        const now = new Date();
+        const assignedAt = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago
+        const dueAt = new Date(now.getTime() + 4 * 60 * 60 * 1000); // 4 hours from now
+
+        const instance = {
+          id: 'instance-1',
+          currentStageId: 'stage-1',
+          currentStageStarted: assignedAt,
+          slaDue: dueAt,
+          currentStage: {
+            id: 'stage-1',
+            name: 'Approval',
+          },
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const compliance = WorkflowExecutor.calculateSLACompliance(instance as any);
+
+        expect(compliance.stageId).toBe('stage-1');
+        expect(compliance.stageName).toBe('Approval');
+        expect(compliance.isOverdue).toBe(false);
+        expect(compliance.hoursUsed).toBe(2);
+        expect(compliance.hoursRemaining).toBe(4);
+      });
+
+      it('should detect overdue SLA', () => {
+        const now = new Date();
+        const assignedAt = new Date(now.getTime() - 10 * 60 * 60 * 1000); // 10 hours ago
+        const dueAt = new Date(now.getTime() - 2 * 60 * 60 * 1000); // 2 hours ago (past due)
+
+        const instance = {
+          id: 'instance-1',
+          currentStageId: 'stage-1',
+          currentStageStarted: assignedAt,
+          slaDue: dueAt,
+          currentStage: {
+            id: 'stage-1',
+            name: 'Review',
+          },
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const compliance = WorkflowExecutor.calculateSLACompliance(instance as any);
+
+        expect(compliance.isOverdue).toBe(true);
+        expect(compliance.hoursUsed).toBe(10);
+        expect(compliance.hoursRemaining).toBeUndefined();
+      });
+
+      it('should handle missing current stage gracefully', () => {
+        const now = new Date();
+        const assignedAt = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+        const dueAt = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+
+        const instance = {
+          id: 'instance-1',
+          currentStageId: 'stage-1',
+          currentStageStarted: assignedAt,
+          slaDue: dueAt,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const compliance = WorkflowExecutor.calculateSLACompliance(instance as any);
+
+        expect(compliance.stageName).toBe('Unknown');
+        expect(compliance.isOverdue).toBe(false);
+      });
+    });
+
+    describe('isOverdue', () => {
+      it('should identify overdue workflow', () => {
+        const now = new Date();
+        const overdueDate = new Date(now.getTime() - 1000); // 1 second in past
+
+        const instance = {
+          id: 'instance-1',
+          slaDue: overdueDate,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect(WorkflowExecutor.isOverdue(instance as any)).toBe(true);
+      });
+
+      it('should identify on-time workflow', () => {
+        const now = new Date();
+        const futureDate = new Date(now.getTime() + 1000); // 1 second in future
+
+        const instance = {
+          id: 'instance-1',
+          slaDue: futureDate,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        expect(WorkflowExecutor.isOverdue(instance as any)).toBe(false);
+      });
+    });
+
+    describe('verifyPermission', () => {
+      it('should allow authenticated user', async () => {
+        const context = {
+          actorId: 'user-123',
+          tenantId: 'tenant-1',
+          timestamp: new Date(),
+        };
+
+        const result = await WorkflowExecutor.verifyPermission({}, context);
+
+        expect(result.isAuthorized).toBe(true);
+      });
+
+      it('should reject missing actor ID', async () => {
+        const context = {
+          actorId: '',
+          tenantId: 'tenant-1',
+          timestamp: new Date(),
+        };
+
+        const result = await WorkflowExecutor.verifyPermission({}, context);
+
+        expect(result.isAuthorized).toBe(false);
+        expect(result.reason).toBe('Actor ID required');
+      });
+
+      it('should reject null actor ID', async () => {
+        const context = {
+          actorId: null,
+          tenantId: 'tenant-1',
+          timestamp: new Date(),
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const result = await WorkflowExecutor.verifyPermission({}, context as any);
+
+        expect(result.isAuthorized).toBe(false);
+        expect(result.reason).toBe('Actor ID required');
+      });
+    });
+
+    describe('getCompletionResult', () => {
+      it('should return null for non-existent instance', async () => {
+        const result = await WorkflowExecutor.getCompletionResult('non-existent-id');
+        expect(result).toBeNull();
+      });
+
+      it('should return null for non-approved workflow', async () => {
+        // Create instance with InProgress status
+        const template = await WorkflowTemplateService.createTemplate(
+          'tenant-1',
+          {
+            name: 'Test Template',
+            entityType: 'Project',
+          },
+          'admin-1'
+        );
+
+        const instance = await WorkflowInstanceService.createInstance('tenant-1', {
+          workflowTemplateId: template.id,
+          entityType: 'Project',
+          entityId: 'project-1',
+          requestType: 'Create',
+          requestData: { name: 'Test Project' },
+        });
+
+        const result = await WorkflowExecutor.getCompletionResult(instance.id);
+        expect(result).toBeNull();
+      });
+    });
+
+    describe('SLA time calculations', () => {
+      it('should correctly calculate hours used and remaining', () => {
+        const now = new Date();
+        const assignedAt = new Date(now.getTime() - 3.5 * 60 * 60 * 1000); // 3.5 hours ago
+        const dueAt = new Date(now.getTime() + 2.5 * 60 * 60 * 1000); // 2.5 hours from now
+
+        const instance = {
+          id: 'instance-1',
+          currentStageId: 'stage-1',
+          currentStageStarted: assignedAt,
+          slaDue: dueAt,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const compliance = WorkflowExecutor.calculateSLACompliance(instance as any);
+
+        expect(compliance.hoursUsed).toBe(3.5);
+        expect(compliance.hoursRemaining).toBe(2.5);
+      });
+
+      it('should round hours to one decimal place', () => {
+        const now = new Date();
+        const assignedAt = new Date(now.getTime() - 3.75 * 60 * 60 * 1000);
+        const dueAt = new Date(now.getTime() + 2.33 * 60 * 60 * 1000);
+
+        const instance = {
+          id: 'instance-1',
+          currentStageId: 'stage-1',
+          currentStageStarted: assignedAt,
+          slaDue: dueAt,
+        };
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const compliance = WorkflowExecutor.calculateSLACompliance(instance as any);
+
+        // 3.75 hours should round to 3.8
+        expect(compliance.hoursUsed).toBe(3.8);
+        // 2.33 hours should round to 2.3
+        expect(compliance.hoursRemaining).toBe(2.3);
+      });
+    });
+
+    describe('workflow status tracking', () => {
+      it('should identify workflow status correctly', async () => {
+        const template = await WorkflowTemplateService.createTemplate(
+          'tenant-1',
+          {
+            name: 'Status Test Template',
+            entityType: 'Project',
+          },
+          'admin-1'
+        );
+
+        const instance = await WorkflowInstanceService.createInstance('tenant-1', {
+          workflowTemplateId: template.id,
+          entityType: 'Project',
+          entityId: 'project-status-test',
+          requestType: 'Update',
+          requestData: { status: 'active' },
+        });
+
+        expect(instance.status).toBe('InProgress');
+
+        // Update to different status
+        const updated = await WorkflowInstanceService.updateInstance(instance.id, {
+          status: 'Approved',
+        });
+
+        expect(updated.status).toBe('Approved');
+      });
     });
   });
 });

@@ -468,3 +468,123 @@ export interface StageActionResponse extends Omit<StageAction, 'createdAt' | 'ac
   actionDate: string;
   stageAssignedDate: string;
 }
+
+// ============================================================================
+// WORKFLOW EXECUTION ENGINE TYPES
+// ============================================================================
+
+/**
+ * Execution context - Information about who's executing an action
+ */
+export interface ExecutionContext {
+  actorId: string;
+  actorName?: string;
+  actorRole?: string;
+  tenantId: string;
+  timestamp: Date;
+}
+
+/**
+ * Permission verification result
+ */
+export interface PermissionVerificationResult {
+  isAuthorized: boolean;
+  reason?: string;
+  requiredRoles?: string[];
+  userRoles?: string[];
+}
+
+/**
+ * SLA compliance information
+ */
+export interface SLAComplianceInfo {
+  stageId: string;
+  stageName: string;
+  assignedAt: Date;
+  dueAt: Date;
+  completedAt?: Date;
+  isOverdue: boolean;
+  hoursRemaining?: number;
+  hoursUsed: number;
+}
+
+/**
+ * Execution result from processing an action
+ */
+export interface ExecutionResult {
+  success: boolean;
+  instanceId: string;
+  actionId: string;
+  action: ActionResult;
+  previousStageId: string;
+  nextStageId?: string;
+  workflowStatus: WorkflowInstanceStatus;
+  slaInfo: SLAComplianceInfo;
+  error?: string;
+  message: string;
+}
+
+/**
+ * Action execution request
+ */
+export interface ActionExecutionRequest {
+  instanceId: string;
+  stageId: string;
+  action: ActionResult; // 'Approved', 'Rejected', 'Returned'
+  comment?: string;
+  returnToStageId?: string; // For 'Return' action, which stage to go back to
+}
+
+/**
+ * Rejection result
+ */
+export interface RejectionResult {
+  instanceId: string;
+  rejectedBy: string;
+  rejectedAt: Date;
+  reason?: string;
+  nextAction?: 'requestRevision' | 'cancelWorkflow';
+}
+
+/**
+ * Workflow completion result
+ */
+export interface WorkflowCompletionResult {
+  instanceId: string;
+  completedAt: Date;
+  totalStagesCompleted: number;
+  totalApprovalTime: number; // In days
+  requestExecuted: boolean;
+  executionError?: string;
+}
+
+/**
+ * Request execution payload - Data to execute when workflow completes
+ */
+export interface RequestExecutionPayload {
+  entityType: EntityType;
+  entityId: string;
+  requestType: RequestType;
+  requestData: Record<string, unknown>;
+}
+
+/**
+ * Workflow execution statistics
+ */
+export interface WorkflowExecutionStats {
+  instanceId: string;
+  createdAt: Date;
+  completedAt?: Date;
+  currentStage: string;
+  stagesCompleted: number;
+  totalStages: number;
+  currentStageStarted: Date;
+  slaDueAt: Date;
+  isOverdue: boolean;
+  actions: Array<{
+    action: ActionResult;
+    actor: string;
+    timestamp: Date;
+    comment?: string;
+  }>;
+}
