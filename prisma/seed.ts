@@ -1102,6 +1102,155 @@ async function main(): Promise<void> {
 
   console.log('  ✓ Created 4 KPIs with baselines and targets');
 
+  // Create Cost Items
+  console.log('  Creating cost items...');
+  await prisma.costItem.createMany({
+    data: [
+      {
+        entityType: 'Program',
+        entityId: program1.id,
+        category: 'Labor',
+        description: 'Development team allocation',
+        plannedAmount: 150000,
+        actualAmount: 145000,
+        currency: 'USD',
+      },
+      {
+        entityType: 'Program',
+        entityId: program1.id,
+        category: 'Equipment',
+        description: 'Servers and infrastructure',
+        plannedAmount: 50000,
+        actualAmount: 52000,
+        currency: 'USD',
+      },
+      {
+        entityType: 'Project',
+        entityId: project1.id,
+        wbsItemId: backend.id,
+        category: 'Service',
+        description: 'API integration services',
+        plannedAmount: 30000,
+        actualAmount: 28500,
+        currency: 'USD',
+      },
+      {
+        entityType: 'Project',
+        entityId: project2.id,
+        wbsItemId: integration.id,
+        category: 'Material',
+        description: 'Medical supplies and equipment',
+        plannedAmount: 75000,
+        actualAmount: 73200,
+        currency: 'USD',
+      },
+      {
+        entityType: 'Project',
+        entityId: project3.id,
+        category: 'Service',
+        description: 'Analytics platform subscription',
+        plannedAmount: 25000,
+        actualAmount: 25000,
+        currency: 'USD',
+      },
+    ],
+  });
+
+  console.log('  ✓ Created 5 cost items');
+
+  // Create Invoices
+  console.log('  Creating invoices...');
+  const invoice1 = await prisma.invoice.create({
+    data: {
+      entityType: 'Project',
+      entityId: project1.id,
+      invoiceNumber: 'INV-2025-001',
+      vendorName: 'Acme Dev Solutions',
+      amount: 45000,
+      currency: 'USD',
+      invoiceDate: new Date('2025-01-15'),
+      dueDate: new Date('2025-02-15'),
+      status: 'Approved',
+      createdBy: pmUser.id,
+    },
+  });
+
+  const invoice2 = await prisma.invoice.create({
+    data: {
+      entityType: 'Project',
+      entityId: project1.id,
+      invoiceNumber: 'INV-2025-002',
+      vendorName: 'API Integration Inc',
+      amount: 28500,
+      currency: 'USD',
+      invoiceDate: new Date('2025-01-20'),
+      dueDate: new Date('2025-02-20'),
+      status: 'Paid',
+      createdBy: pmUser.id,
+    },
+  });
+
+  const invoice3 = await prisma.invoice.create({
+    data: {
+      entityType: 'Project',
+      entityId: project2.id,
+      invoiceNumber: 'INV-2025-003',
+      vendorName: 'Medical Equipment Supplier',
+      amount: 73200,
+      currency: 'USD',
+      invoiceDate: new Date('2025-01-25'),
+      dueDate: new Date('2025-02-25'),
+      status: 'Submitted',
+      createdBy: financeUser.id,
+    },
+  });
+
+  console.log('  ✓ Created 3 invoices');
+
+  // Create Invoice Allocations
+  console.log('  Creating invoice allocations...');
+  await prisma.invoiceAllocation.createMany({
+    data: [
+      {
+        invoiceId: invoice1.id,
+        wbsItemId: backend.id,
+        amount: 22500,
+        percentage: 50,
+        notes: 'Development phase allocation',
+      },
+      {
+        invoiceId: invoice1.id,
+        wbsItemId: phase2.id,
+        amount: 22500,
+        percentage: 50,
+        notes: 'Testing phase allocation',
+      },
+      {
+        invoiceId: invoice2.id,
+        wbsItemId: backend.id,
+        amount: 28500,
+        percentage: 100,
+        notes: 'Full API integration cost',
+      },
+      {
+        invoiceId: invoice3.id,
+        wbsItemId: integration.id,
+        amount: 40000,
+        percentage: 55,
+        notes: 'Primary equipment allocation',
+      },
+      {
+        invoiceId: invoice3.id,
+        wbsItemId: development.id,
+        amount: 33200,
+        percentage: 45,
+        notes: 'Secondary equipment allocation',
+      },
+    ],
+  });
+
+  console.log('  ✓ Created 5 invoice allocations');
+
   console.log('✅ Database seeded successfully!');
 }
 
