@@ -34,6 +34,9 @@ model Tenant {
   scoringCriteria ScoringCriterion[]
   workflowTemplates WorkflowTemplate[]
   auditLogs AuditLog[]
+  notifications Notification[]
+  notificationTemplates NotificationTemplate[]
+  notificationPreferences NotificationPreference[]
 
   @@index([subdomain])
   @@index([status])
@@ -82,6 +85,8 @@ model User {
   stageActors StageAction[]
 
   auditLogs AuditLog[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -726,29 +731,128 @@ model StageAction {
 // ============================================================================
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id                 String   @id @default(cuid())
+  tenantId           String
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  entityType String  @db.VarChar(50)
-  entityId  String
+  actionType         String   @db.VarChar(50)
+  actionDescription  String
+  severity           String   @default("Info") // Info, Warning, Error, Critical
 
-  action    String   @db.VarChar(50)
-  // Action: 'CREATE', 'UPDATE', 'DELETE', etc.
+  entityType         String   @db.VarChar(50)
+  entityId           String
+  parentEntityId     String?
 
-  actorId   String?
-  actor     User?    @relation(fields: [actorId], references: [id])
+  actorId            String?
+  actor              User?    @relation(fields: [actorId], references: [id])
+  actorName          String?
+  actorEmail         String?
 
-  changes   Json     // Before/after values
-  metadata  Json?    // Additional context
+  changeDetails      Json     // What changed
+  oldValues          Json?    // Previous values
+  newValues          Json?    // New values
 
-  ipAddress String?  @db.VarChar(45)
-  userAgent String?
+  ipAddress          String?  @db.VarChar(45)
+  userAgent          String?
+  correlationId      String?
 
-  createdAt DateTime @default(now())
+  workflowInstanceId String?
+  createdAt          DateTime @default(now())
+  timestamp          DateTime @default(now())
 
   @@index([tenantId])
-  @@index([entityType, entityId])
-  @@index([action])
+  @@index([entityId])
+  @@index([actorId])
+  @@index([actionType])
+  @@index([timestamp])
+  @@index([workflowInstanceId])
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id            String   @id @default(cuid())
+  tenantId      String
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email         String
+
+  eventType     String   @db.VarChar(50)
+  subject       String
+  message       String
+  data          Json     @default("{}")
+
+  deliveryMethod String  @db.VarChar(20) @default("Both")
+  // Email, InApp, Both
+  status        String   @db.VarChar(20) @default("Pending")
+  // Pending, Sent, Failed, Read
+
+  createdAt     DateTime @default(now())
+  sentAt        DateTime?
+  readAt        DateTime?
+  failureReason String?
+
+  workflowInstanceId String?
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([status])
+  @@index([eventType])
   @@index([createdAt])
+}
+
+model NotificationTemplate {
+  id                     String   @id @default(cuid())
+  tenantId               String
+  tenant                 Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  eventType              String   @db.VarChar(50)
+  name                   String
+  description            String?
+
+  emailSubjectTemplate   String
+  emailBodyTemplate      String
+
+  inAppTitleTemplate     String
+  inAppMessageTemplate   String
+
+  deliveryMethod         String   @db.VarChar(20) @default("Both")
+  isActive               Boolean  @default(true)
+
+  createdBy              String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([tenantId, eventType])
+  @@index([tenantId])
+  @@index([eventType])
+}
+
+model NotificationPreference {
+  id                String   @id @default(cuid())
+  tenantId          String
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  eventType         String   @db.VarChar(50)
+
+  enabled           Boolean  @default(true)
+  deliveryMethod    String   @db.VarChar(20) @default("Both")
+
+  quietHoursStart   String?  @db.VarChar(5)
+  quietHoursEnd     String?  @db.VarChar(5)
+  quietHoursEnabled Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([tenantId, userId, eventType])
+  @@index([tenantId])
+  @@index([userId])
 }
