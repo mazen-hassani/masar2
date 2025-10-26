@@ -72,6 +72,9 @@ export class EscalationExecutor {
 
       // Execute first applicable rule (highest level)
       const rule = applicableRules[0];
+      if (!rule) {
+        return null;
+      }
 
       // Check cooldown
       const inCooldown = await EscalationService.isInCooldown(
@@ -243,6 +246,7 @@ export class EscalationExecutor {
 
         case 'TriggerWebhook':
           // Placeholder for webhook trigger
+          // eslint-disable-next-line no-console
           console.log(`Would trigger webhook for escalation event ${escalationEventId}`);
           break;
       }
@@ -258,13 +262,14 @@ export class EscalationExecutor {
   private static async performReassign(
     workflowInstanceId: string,
     newAssigneeId: string | undefined,
-    tenantId: string,
-    actorId: string
+    _tenantId: string,
+    _actorId: string
   ): Promise<void> {
     if (!newAssigneeId) return;
 
     try {
       // In production, update workflow assignment in database
+      // eslint-disable-next-line no-console
       console.log(`Reassigning workflow ${workflowInstanceId} to user ${newAssigneeId}`);
     } catch (error) {
       console.error(`Failed to reassign workflow ${workflowInstanceId}: ${error}`);
@@ -282,7 +287,7 @@ export class EscalationExecutor {
       currentStage?: { id: string; name: string };
     },
     tenantId: string,
-    notificationTemplate: string,
+    _notificationTemplate: string,
     breachHours: number
   ): Promise<void> {
     try {
@@ -303,11 +308,11 @@ export class EscalationExecutor {
 
       if (userIds.length === 0) return;
 
-      // Send notifications
+      // Send notifications (fire-and-forget)
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
       NotificationService.sendBulkNotifications(tenantId, {
         userIds,
-        eventType: 'WorkflowEscalated',
+        eventType: 'SLABreached',
         subject: `⚠️ ESCALATION: ${instance.template?.name || 'Workflow'}`,
         message,
         data: {
@@ -330,19 +335,20 @@ export class EscalationExecutor {
     workflowInstanceId: string,
     newPriority: string | undefined,
     tenantId: string,
-    actorId: string
+    _actorId: string
   ): Promise<void> {
     if (!newPriority) return;
 
     try {
       // In production, update priority in database
+      // eslint-disable-next-line no-console
       console.log(`Changed priority of workflow ${workflowInstanceId} to ${newPriority}`);
 
       await AuditLogService.logWorkflowAction(
         tenantId,
         workflowInstanceId,
         'WorkflowPriorityChanged',
-        actorId,
+        _actorId,
         {
           newPriority,
           reason: 'Escalation action',
@@ -359,10 +365,11 @@ export class EscalationExecutor {
   private static async performAddComment(
     workflowInstanceId: string,
     comment: string,
-    actorId: string
+    _actorId: string
   ): Promise<void> {
     try {
       // In production, add comment to workflow
+      // eslint-disable-next-line no-console
       console.log(`Added comment to workflow ${workflowInstanceId}: ${comment}`);
     } catch (error) {
       console.error(`Failed to add comment to workflow ${workflowInstanceId}: ${error}`);
@@ -374,11 +381,12 @@ export class EscalationExecutor {
    */
   private static async performCreateAlert(
     workflowInstanceId: string,
-    tenantId: string,
+    _tenantId: string,
     escalationEventId: string
   ): Promise<void> {
     try {
       // In production, create an alert/incident in the system
+      // eslint-disable-next-line no-console
       console.log(
         `Created alert for workflow ${workflowInstanceId} due to escalation ${escalationEventId}`
       );
@@ -478,7 +486,7 @@ export class EscalationExecutor {
         };
       }
 
-      const latestEscalation = events[0];
+      const latestEscalation = events[0]!;
 
       return {
         isEscalated: true,
